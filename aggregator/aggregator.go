@@ -2,13 +2,12 @@ package aggregator
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"net"
-	"reflect"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -940,6 +939,16 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 		return nil, nil, nil, state.ErrNotFound
 	}
 
+	// Check if the acc input hash of the previous batch exists
+	a.accInputHashMutes.RLock()
+	oldAccInputHash := a.batchAccInputHash[batchNumberToVerify-1]
+	a.accInputHashMutes.RUnlock()
+
+	// Not found, so it it not possible to verify the batch yet
+	if oldAccInputHash == state.ZeroHash {
+		return nil, nil, nil, state.ErrNotFound
+	}
+
 	// Get virtual batch pending to generate proof from the data stream
 	batchStreamData, batch, err := a.getBatchFromDataStream(batchNumberToVerify, sequence.Timestamp)
 	if err != nil {
@@ -1011,6 +1020,7 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 
 	defer func() {
 		if err != nil {
+			log.Debug("Deleting proof in progress")
 			err2 := a.state.DeleteGeneratedProofs(a.ctx, proof.BatchNumber, proof.BatchNumberFinal, nil)
 			if err2 != nil {
 				log.Errorf("Failed to delete proof in progress, err: %v", err2)
@@ -1045,6 +1055,10 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	if err != nil {
 		err = fmt.Errorf("failed to get batch proof id, %w", err)
 		log.Error(FirstToUpper(err.Error()))
+		err2 := a.state.DeleteGeneratedProofs(a.ctx, proof.BatchNumber, proof.BatchNumberFinal, nil)
+		if err2 != nil {
+			log.Errorf("Failed to delete proof in progress, err: %v", err2)
+		}
 		return false, err
 	}
 
@@ -1175,6 +1189,7 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 				log.Infof("Calling tree.ComputeMerkleProof")
 				smtProof, calculatedL1InfoRoot, err := tree.ComputeMerkleProof(l2blockRaw.IndexL1InfoTree, aLeaves)
 				if err != nil {
+					log.Errorf("Error%v", err)
 					return nil, err
 				}
 
@@ -1225,13 +1240,12 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 
 	log.Info("Witness generated.")
 
-	// TODO: Improve logic to allow concurrency and set as pre requisite much earlier
 	// Calculate accInputHash
 	a.accInputHashMutes.RLock()
 	oldAccInputHash := a.batchAccInputHash[batchToVerify.BatchNumber-1]
 	a.accInputHashMutes.RUnlock()
 
-	// TODO: Store accInputHash along the proof in order to use it in case of restart
+	// Santity check, this should never happen at this point
 	if oldAccInputHash == state.ZeroHash {
 		return nil, fmt.Errorf("failed to get oldAccInputHash for batch %d", batchToVerify.BatchNumber)
 	}
@@ -1264,13 +1278,18 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 
 	printInputProver(inputProver)
 
-	r := reflect.ValueOf(inputProver)
-	s := binary.Size(r)
-
-	log.Infof("TotalSize = %v bytes", s)
 	log.Infof("Witness: %v", len(witness))
 	log.Infof("DataStream: %v", len(batchStreamData))
 	log.Infof("L1InfoTreeData: %v", len(l1InfoTreeData))
+
+	b, err := json.Marshal(inputProver)
+	if err != nil {
+		return nil, err
+	}
+	err = os.WriteFile("/tmp/inputProver.json", b, 0644)
+	if err != nil {
+		return nil, err
+	}
 
 	return inputProver, nil
 }

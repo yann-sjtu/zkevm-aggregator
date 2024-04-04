@@ -93,23 +93,8 @@ func start(cliCtx *cli.Context) error {
 	}
 
 	st := newState(cliCtx.Context, c, l2ChainID, []state.ForkIDInterval{}, stateSqlDB, eventLog)
-	/*
-		forkIDIntervals, err := forkIDIntervals(cliCtx.Context, st, etherman, c.NetworkConfig.Genesis.BlockNumber)
-		if err != nil {
-			log.Fatal("error getting forkIDs. Error: ", err)
-		}
-		st.UpdateForkIDIntervalsInMemory(forkIDIntervals)
-
-		currentForkID := forkIDIntervals[len(forkIDIntervals)-1].ForkId
-		log.Infof("Fork ID read from POE SC = %v", forkIDIntervals[len(forkIDIntervals)-1].ForkId)
-
-		log.Infof("Chain ID read from POE SC = %v", l2ChainID)
-		// If the aggregator is restarted before the end of the sync process, this currentForkID could be wrong
-		c.Aggregator.ForkId = currentForkID
-	*/
 
 	c.Aggregator.ChainID = l2ChainID
-	c.Aggregator.ForkId = 8
 
 	ev := &event.Event{
 		ReceivedAt: time.Now(),
