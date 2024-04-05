@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -30,6 +29,7 @@ import (
 	"github.com/iden3/go-iden3-crypto/keccak256"
 	"google.golang.org/grpc"
 	grpchealth "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 )
 
@@ -165,7 +165,18 @@ func (a *Aggregator) Start(ctx context.Context) error {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	a.srv = grpc.NewServer()
+	enforcement := keepalive.EnforcementPolicy{
+		MinTime:             5 * time.Second,
+		PermitWithoutStream: true,
+	}
+
+	a.srv = grpc.NewServer(
+		grpc.KeepaliveEnforcementPolicy(enforcement),
+		grpc.KeepaliveParams(keepalive.ServerParameters{
+			MaxConnectionAge:      15 * time.Minute,
+			MaxConnectionAgeGrace: 15 * time.Minute,
+		}),
+	)
 	prover.RegisterAggregatorServiceServer(a.srv, a)
 
 	healthService := newHealthChecker()
@@ -176,6 +187,9 @@ func (a *Aggregator) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+
+	// TODO: Remove this !!!!
+	// lastVerifiedBatchNumber := uint64(73865)
 
 	// Initiate AccInputHash map
 	lastVerifiedBatchNumber, err := a.etherman.GetLatestVerifiedBatchNum()
@@ -344,7 +358,7 @@ func (a *Aggregator) sendFinalProof() {
 				a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 				continue
 			}
-			monitoredTxID, err := a.ethTxManager.Add(ctx, to, nil, big.NewInt(0), data)
+			monitoredTxID, err := a.ethTxManager.Add(ctx, to, nil, big.NewInt(0), data, nil)
 			if err != nil {
 				mTxLogger := ethtxmanager.CreateLogger(monitoredTxID, sender, to)
 				mTxLogger.Errorf("Error to add batch verification tx to eth tx manager: %v", err)
@@ -925,12 +939,16 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 		return nil, nil, nil, err
 	}
 
+	// TODO: REMOVE THIS !!
+	// lastVerifiedBatchNumber = 73865
+
 	batchNumberToVerify := lastVerifiedBatchNumber + 1
 	log.Debugf("Batch Number To Verify: %d", batchNumberToVerify)
 
 	// Check if the batch exists
 	sequence, err := a.l1Syncr.GetSequenceByBatchNumber(ctx, batchNumberToVerify)
 	if err != nil {
+		log.Infof("No sequence found for batch %d", batchNumberToVerify)
 		return nil, nil, nil, err
 	}
 
@@ -946,6 +964,7 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 
 	// Not found, so it it not possible to verify the batch yet
 	if oldAccInputHash == state.ZeroHash {
+		log.Infof("No sequence found for batch %d", batchNumberToVerify)
 		return nil, nil, nil, state.ErrNotFound
 	}
 
@@ -1039,15 +1058,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 		return false, err
 	}
 
-	b, err := json.Marshal(inputProver)
-	if err != nil {
-		err = fmt.Errorf("failed to serialize input prover, %w", err)
-		log.Error(FirstToUpper(err.Error()))
-		return false, err
-	}
-
-	proof.InputProver = string(b)
-
 	log.Infof("Sending a batch to the prover. OldAccInputHash [%#x], L1InfoRoot [%#x]",
 		inputProver.PublicInputs.OldAccInputHash, inputProver.PublicInputs.L1InfoRoot)
 
@@ -1055,10 +1065,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	if err != nil {
 		err = fmt.Errorf("failed to get batch proof id, %w", err)
 		log.Error(FirstToUpper(err.Error()))
-		err2 := a.state.DeleteGeneratedProofs(a.ctx, proof.BatchNumber, proof.BatchNumberFinal, nil)
-		if err2 != nil {
-			log.Errorf("Failed to delete proof in progress, err: %v", err2)
-		}
 		return false, err
 	}
 
@@ -1136,6 +1142,7 @@ func (a *Aggregator) resetVerifyProofTime() {
 func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byte, batchToVerify *state.Batch) (*prover.StatelessInputProver, error) {
 	sequence, err := a.l1Syncr.GetSequenceByBatchNumber(ctx, batchToVerify.BatchNumber)
 	if err != nil {
+		log.Error("Error getting sequence for batch number %v", batchToVerify.BatchNumber)
 		return nil, err
 	}
 
@@ -1281,15 +1288,6 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 	log.Infof("Witness: %v", len(witness))
 	log.Infof("DataStream: %v", len(batchStreamData))
 	log.Infof("L1InfoTreeData: %v", len(l1InfoTreeData))
-
-	b, err := json.Marshal(inputProver)
-	if err != nil {
-		return nil, err
-	}
-	err = os.WriteFile("/tmp/inputProver.json", b, 0644)
-	if err != nil {
-		return nil, err
-	}
 
 	return inputProver, nil
 }

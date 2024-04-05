@@ -17,10 +17,10 @@ func NewMTDBServiceClient(ctx context.Context, c Config) (hashdb.HashDBServiceCl
 		grpc.WithBlock(),
 	}
 	const maxWaitSeconds = 120
-	ctx, cancel := context.WithTimeout(ctx, maxWaitSeconds*time.Second)
+	_, cancel := context.WithTimeout(ctx, maxWaitSeconds*time.Second)
 
 	log.Infof("trying to connect to merkletree: %v", c.URI)
-	mtDBConn, err := grpc.DialContext(ctx, c.URI, opts...)
+	mtDBConn, err := grpc.NewClient(c.URI, opts...)
 	if err != nil {
 		log.Fatalf("fail to dial: %v", err)
 	}
