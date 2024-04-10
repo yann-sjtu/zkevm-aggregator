@@ -1,20 +1,18 @@
-version: "3.5"
 networks:
   default:
     name: zkevm
     
 services:
 
-  cdk-erigon:
-    container_name: cdk-erigon
-    image: cdk-erigon
-    ports:
-      - 8545:8545
+  zkevm-prover:
+    container_name: zkevm-prover
+    restart: unless-stopped
+    image: hermeznetwork/zkevm-prover:v6.0.0 
     volumes:
-      - ~/data/cdk-erigon:/data/cdk-erigon
-      - ./config/hermezconfig-cardona.yaml:/hermezconfig-cardona.yaml
+      - ./config/test.prover.config.json:/usr/src/app/config.json
+      - ~/stateless-aggregator/prover/config:/app/config
     command: >
-      --config="/hermezconfig-cardona.yaml" --http.addr=0.0.0.0 --http.vhosts=* --http.corsdomain=*
+      zkProver -c /usr/src/app/config.json
 
   zkevm-aggregator:
     container_name: zkevm-aggregator
@@ -24,7 +22,7 @@ services:
       - 9093:9091 # needed if metrics enabled
     environment:
       - ZKEVM_AGGREGATOR_DB_HOST=zkevm-aggregator-db
-      - ZKEVM_NODE_AGGREGATOR_SENDER_ADDRESS=0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266
+      - ZKEVM_NODE_AGGREGATOR_SENDER_ADDRESS=0x3f2963d678442c4af27a797453b64ef6ce9443e9
     volumes:
       - ./config/test.aggregator.config.toml:/app/config.toml
       - ./config/test.genesis.config.json:/app/genesis.json
@@ -73,16 +71,3 @@ services:
       - "postgres"
       - "-N"
       - "500"
-
-  zkevm-prover:
-    container_name: zkevm-prover
-    image: hermeznetwork/zkevm-prover:v6.0.0
-    restart: unless-stopped 
-    ports:
-      - 50061:50061 # MT
-      - 50071:50071 # Executor
-    volumes:
-      - ./config/test.prover.config.json:/usr/src/app/config.json
-      - /home/zkevm/zkevm/config/v6.0.0-rc.1-fork.9/config:/app/config
-    command: >
-      zkProver -c /usr/src/app/config.json

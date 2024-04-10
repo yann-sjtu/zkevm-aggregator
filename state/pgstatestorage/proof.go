@@ -10,6 +10,20 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
+// CheckProofExistsForBatch checks if the batch is already included in any proof
+func (p *PostgresStorage) CheckProofExistsForBatch(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (bool, error) {
+	const checkProofExistsForBatchSQL = `
+		SELECT EXISTS (SELECT 1 FROM aggregator.proof p WHERE $1 >= p.batch_num AND $1 <= p.batch_num_final)
+		`
+	e := p.getExecQuerier(dbTx)
+	var exists bool
+	err := e.QueryRow(ctx, checkProofExistsForBatchSQL, batchNumber).Scan(&exists)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return exists, err
+	}
+	return exists, nil
+}
+
 // CheckProofContainsCompleteSequences checks if a recursive proof contains complete sequences
 func (p *PostgresStorage) CheckProofContainsCompleteSequences(ctx context.Context, proof *state.Proof, dbTx pgx.Tx) (bool, error) {
 	const getProofContainsCompleteSequencesSQL = `

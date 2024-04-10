@@ -20,3 +20,8 @@ CREATE TABLE aggregator.proof (
     PRIMARY KEY (batch_num, batch_num_final)
 );
 
+CREATE TABLE aggregator.acc_input_hash (
+	batch_num BIGINT NOT NULL,
+	hash varchar NOT NULL,
+	PRIMARY KEY (batch_num)
+);

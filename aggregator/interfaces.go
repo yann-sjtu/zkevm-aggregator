@@ -52,4 +52,7 @@ type stateInterface interface {
 	DeleteUngeneratedProofs(ctx context.Context, dbTx pgx.Tx) error
 	CleanupGeneratedProofs(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) error
 	CleanupLockedProofs(ctx context.Context, duration string, dbTx pgx.Tx) (int64, error)
+	CheckProofExistsForBatch(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (bool, error)
+	AddAccInputHash(ctx context.Context, batchNumber uint64, accInputHash common.Hash, dbTx pgx.Tx) error
+	GetAccInputHash(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (common.Hash, error)
 }
