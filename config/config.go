@@ -6,14 +6,11 @@ import (
 	"strings"
 
 	"github.com/0xPolygonHermez/zkevm-aggregator/aggregator"
-	"github.com/0xPolygonHermez/zkevm-aggregator/db"
 	"github.com/0xPolygonHermez/zkevm-aggregator/etherman"
 	"github.com/0xPolygonHermez/zkevm-aggregator/event"
 	"github.com/0xPolygonHermez/zkevm-aggregator/log"
-	"github.com/0xPolygonHermez/zkevm-aggregator/merkletree"
 	"github.com/0xPolygonHermez/zkevm-aggregator/metrics"
 	"github.com/0xPolygonHermez/zkevm-aggregator/state"
-	"github.com/0xPolygonHermez/zkevm-aggregator/state/runtime/executor"
 	"github.com/0xPolygonHermez/zkevm-ethtx-manager/ethtxmanager"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
@@ -86,16 +83,10 @@ type Config struct {
 	Aggregator aggregator.Config
 	// Configuration of the genesis of the network. This is used to known the initial state of the network
 	NetworkConfig NetworkConfig
-	// Configuration of the executor service
-	Executor executor.Config
-	// Configuration of the merkle tree client service. Not use in the node, only for testing
-	MTClient merkletree.Config
 	// Configuration of the metrics service, basically is where is going to publish the metrics
 	Metrics metrics.Config
 	// Configuration of the event database connection
 	EventLog event.Config
-	// Configuration of the hash database connection
-	HashDB db.Config
 	// State service configuration
 	State state.Config
 }

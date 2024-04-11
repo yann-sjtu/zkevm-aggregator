@@ -187,13 +187,11 @@ func newState(c *config.Config, l2ChainID uint64, forkIDIntervals []state.ForkID
 	stateDb := pgstatestorage.NewPostgresStorage(c.State, sqlDB)
 
 	stateCfg := state.Config{
-		MaxCumulativeGasUsed:         c.State.Batch.Constraints.MaxCumulativeGasUsed,
-		ChainID:                      l2ChainID,
-		ForkIDIntervals:              forkIDIntervals,
-		MaxResourceExhaustedAttempts: c.Executor.MaxResourceExhaustedAttempts,
-		WaitOnResourceExhaustion:     c.Executor.WaitOnResourceExhaustion,
-		ForkUpgradeBatchNumber:       c.ForkUpgradeBatchNumber,
-		ForkUpgradeNewForkId:         c.ForkUpgradeNewForkId,
+		MaxCumulativeGasUsed:   c.State.Batch.Constraints.MaxCumulativeGasUsed,
+		ChainID:                l2ChainID,
+		ForkIDIntervals:        forkIDIntervals,
+		ForkUpgradeBatchNumber: c.ForkUpgradeBatchNumber,
+		ForkUpgradeNewForkId:   c.ForkUpgradeNewForkId,
 	}
 
 	st := state.NewState(stateCfg, stateDb, eventLog)

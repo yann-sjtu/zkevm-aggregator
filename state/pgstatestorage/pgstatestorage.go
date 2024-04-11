@@ -3,7 +3,6 @@ package pgstatestorage
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/0xPolygonHermez/zkevm-aggregator/state"
 	"github.com/ethereum/go-ethereum/common"
@@ -77,34 +76,6 @@ func (p *PostgresStorage) ResetTrustedState(ctx context.Context, batchNumber uin
 	return nil
 }
 
-// GetProcessingContext returns the processing context for the given batch.
-func (p *PostgresStorage) GetProcessingContext(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (*state.ProcessingContext, error) {
-	const getProcessingContextSQL = "SELECT batch_num, global_exit_root, timestamp, coinbase, forced_batch_num from state.batch WHERE batch_num = $1"
-
-	e := p.getExecQuerier(dbTx)
-	row := e.QueryRow(ctx, getProcessingContextSQL, batchNumber)
-	processingContext := state.ProcessingContext{}
-	var (
-		gerStr      string
-		coinbaseStr string
-	)
-	if err := row.Scan(
-		&processingContext.BatchNumber,
-		&gerStr,
-		&processingContext.Timestamp,
-		&coinbaseStr,
-		&processingContext.ForcedBatchNum,
-	); errors.Is(err, pgx.ErrNoRows) {
-		return nil, state.ErrStateNotSynchronized
-	} else if err != nil {
-		return nil, err
-	}
-	processingContext.GlobalExitRoot = common.HexToHash(gerStr)
-	processingContext.Coinbase = common.HexToAddress(coinbaseStr)
-
-	return &processingContext, nil
-}
-
 // GetStateRootByBatchNumber get state root by batch number
 func (p *PostgresStorage) GetStateRootByBatchNumber(ctx context.Context, batchNum uint64, dbTx pgx.Tx) (common.Hash, error) {
 	const query = "SELECT state_root FROM state.batch WHERE batch_num = $1"
@@ -117,133 +88,6 @@ func (p *PostgresStorage) GetStateRootByBatchNumber(ctx context.Context, batchNu
 		return common.Hash{}, err
 	}
 	return common.HexToHash(stateRootStr), nil
-}
-
-// GetLogsByBlockNumber get all the logs from a specific block ordered by log index
-func (p *PostgresStorage) GetLogsByBlockNumber(ctx context.Context, blockNumber uint64, dbTx pgx.Tx) ([]*types.Log, error) {
-	const query = `
-      SELECT t.l2_block_num, b.block_hash, l.tx_hash, r.tx_index, l.log_index, l.address, l.data, l.topic0, l.topic1, l.topic2, l.topic3
-        FROM state.log l
-       INNER JOIN state.transaction t ON t.hash = l.tx_hash
-       INNER JOIN state.l2block b ON b.block_num = t.l2_block_num
-       INNER JOIN state.receipt r ON r.tx_hash = t.hash
-       WHERE b.block_num = $1
-       ORDER BY l.log_index ASC`
-
-	q := p.getExecQuerier(dbTx)
-	rows, err := q.Query(ctx, query, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	return scanLogs(rows)
-}
-
-// GetLogs returns the logs that match the filter
-func (p *PostgresStorage) GetLogs(ctx context.Context, fromBlock uint64, toBlock uint64, addresses []common.Address, topics [][]common.Hash, blockHash *common.Hash, since *time.Time, dbTx pgx.Tx) ([]*types.Log, error) {
-	// query parts
-	const queryCount = `SELECT count(*) `
-	const querySelect = `SELECT t.l2_block_num, b.block_hash, l.tx_hash, r.tx_index, l.log_index, l.address, l.data, l.topic0, l.topic1, l.topic2, l.topic3 `
-
-	const queryBody = `FROM state.log l
-       INNER JOIN state.transaction t ON t.hash = l.tx_hash
-       INNER JOIN state.l2block b ON b.block_num = t.l2_block_num
-       INNER JOIN state.receipt r ON r.tx_hash = t.hash
-       WHERE (l.address = any($1) OR $1 IS NULL)
-         AND (l.topic0 = any($2) OR $2 IS NULL)
-         AND (l.topic1 = any($3) OR $3 IS NULL)
-         AND (l.topic2 = any($4) OR $4 IS NULL)
-         AND (l.topic3 = any($5) OR $5 IS NULL)
-         AND (b.created_at >= $6 OR $6 IS NULL) `
-
-	const queryFilterByBlockHash = `AND b.block_hash = $7 `
-	const queryFilterByBlockNumbers = `AND b.block_num BETWEEN $7 AND $8 `
-
-	const queryOrder = `ORDER BY b.block_num ASC, l.log_index ASC`
-
-	// count queries
-	const queryToCountLogsByBlockHash = "" +
-		queryCount +
-		queryBody +
-		queryFilterByBlockHash
-	const queryToCountLogsByBlockNumbers = "" +
-		queryCount +
-		queryBody +
-		queryFilterByBlockNumbers
-
-	// select queries
-	const queryToSelectLogsByBlockHash = "" +
-		querySelect +
-		queryBody +
-		queryFilterByBlockHash +
-		queryOrder
-	const queryToSelectLogsByBlockNumbers = "" +
-		querySelect +
-		queryBody +
-		queryFilterByBlockNumbers +
-		queryOrder
-
-	args := []interface{}{}
-
-	// address filter
-	if len(addresses) > 0 {
-		args = append(args, p.addressesToHex(addresses))
-	} else {
-		args = append(args, nil)
-	}
-
-	// topic filters
-	for i := 0; i < maxTopics; i++ {
-		if len(topics) > i && len(topics[i]) > 0 {
-			args = append(args, p.hashesToHex(topics[i]))
-		} else {
-			args = append(args, nil)
-		}
-	}
-
-	// since filter
-	args = append(args, since)
-
-	// block filter
-	var queryToCount string
-	var queryToSelect string
-	if blockHash != nil {
-		args = append(args, blockHash.String())
-		queryToCount = queryToCountLogsByBlockHash
-		queryToSelect = queryToSelectLogsByBlockHash
-	} else {
-		if toBlock < fromBlock {
-			return nil, state.ErrInvalidBlockRange
-		}
-
-		blockRange := toBlock - fromBlock
-		if p.cfg.MaxLogsBlockRange > 0 && blockRange > p.cfg.MaxLogsBlockRange {
-			return nil, state.ErrMaxLogsBlockRangeLimitExceeded
-		}
-
-		args = append(args, fromBlock, toBlock)
-		queryToCount = queryToCountLogsByBlockNumbers
-		queryToSelect = queryToSelectLogsByBlockNumbers
-	}
-
-	q := p.getExecQuerier(dbTx)
-	if p.cfg.MaxLogsCount > 0 {
-		var count uint64
-		err := q.QueryRow(ctx, queryToCount, args...).Scan(&count)
-		if err != nil {
-			return nil, err
-		}
-
-		if count > p.cfg.MaxLogsCount {
-			return nil, state.ErrMaxLogsCountLimitExceeded
-		}
-	}
-
-	rows, err := q.Query(ctx, queryToSelect, args...)
-	if err != nil {
-		return nil, err
-	}
-	return scanLogs(rows)
 }
 
 func (p *PostgresStorage) addressesToHex(addresses []common.Address) []string {
@@ -264,15 +108,6 @@ func (p *PostgresStorage) hashesToHex(hashes []common.Hash) []string {
 	}
 
 	return converted
-}
-
-// AddTrustedReorg is used to store trusted reorgs
-func (p *PostgresStorage) AddTrustedReorg(ctx context.Context, reorg *state.TrustedReorg, dbTx pgx.Tx) error {
-	const insertTrustedReorgSQL = "INSERT INTO state.trusted_reorg (timestamp, batch_num, reason) VALUES (NOW(), $1, $2)"
-
-	e := p.getExecQuerier(dbTx)
-	_, err := e.Exec(ctx, insertTrustedReorgSQL, reorg.BatchNumber, reorg.Reason)
-	return err
 }
 
 // CountReorgs returns the number of reorgs

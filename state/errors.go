@@ -79,20 +79,3 @@ func ConstructErrorFromRevert(err error, returnValue []byte) error {
 
 	return fmt.Errorf("%w: %s", err, revertErrMsg)
 }
-
-// BatchRemainingResourcesUnderflowError happens when the execution of a batch runs out of counters
-type BatchRemainingResourcesUnderflowError struct {
-	Message      string
-	Code         int
-	Err          error
-	ResourceName string
-}
-
-// Error returns the error message
-func (b BatchRemainingResourcesUnderflowError) Error() string {
-	return constructErrorMsg(b.ResourceName)
-}
-
-func constructErrorMsg(resourceName string) string {
-	return fmt.Sprintf("underflow of remaining resources for current batch. Resource %s", resourceName)
-}
