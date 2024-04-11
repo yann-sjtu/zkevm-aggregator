@@ -837,7 +837,6 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 
 		switch entry.Type {
 		case state.EntryTypeL2BlockStart:
-			log.Infof("EntryTypeL2BlockStart: %v", entry.Number)
 			l2BlockStart := state.DSL2BlockStart{}.Decode(entry.Data)
 			header := state.ChangeL2BlockHeader{
 				DeltaTimestamp:  l2BlockStart.DeltaTimestamp,
@@ -845,10 +844,10 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 			}
 			currentL2Block.ChangeL2BlockHeader = header
 			currentL2Block.Transactions = make([]state.L2TxRaw, 0)
+			currentL2Block.BlockNumber = l2BlockStart.L2BlockNumber
 			batch.L1InfoTreeIndex = l2BlockStart.L1InfoTreeIndex
 			batch.GlobalExitRoot = l2BlockStart.GlobalExitRoot
 		case state.EntryTypeL2Tx:
-			log.Infof("EntryTypeL2Tx: %v", entry.Number)
 			l2Tx := state.DSL2Transaction{}.Decode(entry.Data)
 			// New Tx raw
 			tx, err := state.DecodeTx(common.Bytes2Hex(l2Tx.Encoded))
@@ -863,7 +862,6 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 			}
 			currentL2Block.Transactions = append(currentL2Block.Transactions, l2TxRaw)
 		case state.EntryTypeL2BlockEnd:
-			log.Infof("EntryTypeL2BlockEnd: %v", entry.Number)
 			l2BlockEnd := state.DSL2BlockEnd{}.Decode(entry.Data)
 			batchRaw.Blocks = append(batchRaw.Blocks, currentL2Block)
 			batch.StateRoot = l2BlockEnd.StateRoot
@@ -874,6 +872,13 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 			return nil, nil, err
 		}
 	}
+
+	// Get LER
+	ler, err := getLER(currentL2Block.BlockNumber, a.cfg.WitnessURL, a.cfg.LERContract)
+	if err != nil {
+		return nil, nil, err
+	}
+	batch.LocalExitRoot = ler
 
 	batchl2Data, err := state.EncodeBatchV2(&batchRaw)
 	if err != nil {
@@ -1223,6 +1228,11 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 		return nil, err
 	}
 
+	// Check Witness length
+	if len(witness) > 100*1204 { // nolint: gomnd
+		log.Warnf("Witness length is %d bytes. Check full witness configuration on %s", len(witness), a.cfg.WitnessURL)
+	}
+
 	// Calculate accInputHash
 	oldAccInputHash, err := a.state.GetAccInputHash(ctx, batchToVerify.BatchNumber-1, nil)
 	if err != nil {
@@ -1306,6 +1316,27 @@ func getWitness(batchNumber uint64, URL string) ([]byte, error) {
 		witnessString = "0" + witnessString
 	}
 	bytes := common.Hex2Bytes(witnessString)
+
+	return bytes, nil
+}
+
+func getLER(blockNumber uint64, URL string, LERContract string) (common.Hash, error) {
+	var witness string
+	response, err := rpclient.JSONRPCCall(URL, "eth_getStorageAt", nil, "1", LERContract, "0x01", blockNumber)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	err = json.Unmarshal(response.Result, &witness)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	lerString := strings.TrimLeft(witness, "0x")
+	if len(lerString)%2 != 0 {
+		lerString = "0" + lerString
+	}
+	bytes := common.HexToHash(lerString)
 
 	return bytes, nil
 }

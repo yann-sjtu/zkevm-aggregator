@@ -70,6 +70,7 @@ type ChangeL2BlockHeader struct {
 
 // L2BlockRaw is the raw representation of a L2 block.
 type L2BlockRaw struct {
+	BlockNumber uint64
 	ChangeL2BlockHeader
 	Transactions []L2TxRaw
 }

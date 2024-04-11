@@ -98,6 +98,9 @@ type Config struct {
 	// WitnessURL is the URL of the witness server
 	WitnessURL string `mapstructure:"WitnessURL"`
 
+	// LERContract is the contract address to get the LER from
+	LERContract string `mapstructure:"LERContract"`
+
 	// StreamClient is the config for the stream client
 	StreamClient StreamClientCfg `mapstructure:"StreamClient"`
 
