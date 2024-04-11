@@ -29,7 +29,6 @@ import (
 	"github.com/iden3/go-iden3-crypto/keccak256"
 	"google.golang.org/grpc"
 	grpchealth "google.golang.org/grpc/health/grpc_health_v1"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/peer"
 )
 
@@ -172,18 +171,22 @@ func (a *Aggregator) Start(ctx context.Context) error {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	enforcement := keepalive.EnforcementPolicy{
-		MinTime:             5 * time.Second,
-		PermitWithoutStream: true,
-	}
+	/*
+		enforcement := keepalive.EnforcementPolicy{
+			MinTime:             5 * time.Second,
+			PermitWithoutStream: true,
+		}
 
-	a.srv = grpc.NewServer(
-		grpc.KeepaliveEnforcementPolicy(enforcement),
-		grpc.KeepaliveParams(keepalive.ServerParameters{
-			MaxConnectionAge:      15 * time.Minute,
-			MaxConnectionAgeGrace: 15 * time.Minute,
-		}),
-	)
+		a.srv = grpc.NewServer(
+			grpc.KeepaliveEnforcementPolicy(enforcement),
+			grpc.KeepaliveParams(keepalive.ServerParameters{
+				MaxConnectionAge:      15 * time.Minute,
+				MaxConnectionAgeGrace: 15 * time.Minute,
+			}),
+		)
+	*/
+
+	a.srv = grpc.NewServer()
 	prover.RegisterAggregatorServiceServer(a.srv, a)
 
 	healthService := newHealthChecker()
@@ -920,7 +923,6 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 		if err != nil {
 			return nil, nil, err
 		}
-
 	}
 
 	log.Infof("BatchL2Data Raw: %v", batchRaw)
