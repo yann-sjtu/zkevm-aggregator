@@ -25,8 +25,6 @@ type NetworkConfig struct {
 
 type network string
 
-const mainnet network = "mainnet"
-const testnet network = "testnet"
 const custom network = "custom"
 
 // GenesisFromJSON is the config file for network_custom
@@ -59,10 +57,6 @@ type genesisAccountFromJSON struct {
 func (cfg *Config) loadNetworkConfig(ctx *cli.Context) {
 	var networkJSON string
 	switch ctx.String(FlagNetwork) {
-	case string(mainnet):
-		networkJSON = MainnetNetworkConfigJSON
-	case string(testnet):
-		networkJSON = TestnetNetworkConfigJSON
 	case string(custom):
 		var err error
 		cfgPath := ctx.String(FlagCustomNetwork)
@@ -71,7 +65,7 @@ func (cfg *Config) loadNetworkConfig(ctx *cli.Context) {
 			panic(err.Error())
 		}
 	default:
-		log.Fatalf("unsupported --network value. Must be one of: [%s, %s, %s]", mainnet, testnet, custom)
+		log.Fatalf("unsupported --network value. Must be one of: [%s]", custom)
 	}
 	config, err := LoadGenesisFromJSONString(networkJSON)
 	if err != nil {

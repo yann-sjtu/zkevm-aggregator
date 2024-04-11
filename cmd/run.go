@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -92,7 +91,7 @@ func start(cliCtx *cli.Context) error {
 		log.Fatal(err)
 	}
 
-	st := newState(cliCtx.Context, c, l2ChainID, []state.ForkIDInterval{}, stateSqlDB, eventLog)
+	st := newState(c, l2ChainID, []state.ForkIDInterval{}, stateSqlDB, eventLog)
 
 	c.Aggregator.ChainID = l2ChainID
 
@@ -184,7 +183,7 @@ func waitSignal(cancelFuncs []context.CancelFunc) {
 	}
 }
 
-func newState(ctx context.Context, c *config.Config, l2ChainID uint64, forkIDIntervals []state.ForkIDInterval, sqlDB *pgxpool.Pool, eventLog *event.EventLog) *state.State {
+func newState(c *config.Config, l2ChainID uint64, forkIDIntervals []state.ForkIDInterval, sqlDB *pgxpool.Pool, eventLog *event.EventLog) *state.State {
 	stateDb := pgstatestorage.NewPostgresStorage(c.State, sqlDB)
 
 	stateCfg := state.Config{
@@ -267,72 +266,4 @@ func logVersion() {
 		"built", zkevm.BuildDate,
 		"os/arch", fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 	)
-}
-
-func forkIDIntervals(ctx context.Context, st *state.State, etherman *etherman.Client, genesisBlockNumber uint64) ([]state.ForkIDInterval, error) {
-	log.Debug("getting forkIDs from db")
-	forkIDIntervals, err := st.GetForkIDs(ctx, nil)
-	if err != nil && !errors.Is(err, state.ErrStateNotSynchronized) {
-		return []state.ForkIDInterval{}, fmt.Errorf("error getting forkIDs from db. Error: %v", err)
-	}
-	numberForkIDs := len(forkIDIntervals)
-	log.Debug("numberForkIDs: ", numberForkIDs)
-	// var forkIDIntervals []state.ForkIDInterval
-	if numberForkIDs == 0 {
-		// Get last L1block Synced
-		lastBlock, err := st.GetLastBlock(ctx, nil)
-		if err != nil && !errors.Is(err, state.ErrStateNotSynchronized) {
-			return []state.ForkIDInterval{}, fmt.Errorf("error checking lastL1BlockSynced. Error: %v", err)
-		}
-		if lastBlock != nil {
-			log.Info("Getting forkIDs intervals. Please wait...")
-			// Read Fork ID FROM POE SC
-			forkIntervals, err := etherman.GetForks(ctx, genesisBlockNumber, lastBlock.BlockNumber)
-			if err != nil {
-				return []state.ForkIDInterval{}, fmt.Errorf("error getting forks. Please check the configuration. Error: %v", err)
-			} else if len(forkIntervals) == 0 {
-				return []state.ForkIDInterval{}, fmt.Errorf("error: no forkID received. It should receive at least one, please check the configuration")
-			}
-
-			dbTx, err := st.BeginStateTransaction(ctx)
-			if err != nil {
-				return []state.ForkIDInterval{}, fmt.Errorf("error creating dbTx. Error: %v", err)
-			}
-			log.Info("Storing forkID intervals into db")
-			// Store forkIDs
-			for _, f := range forkIntervals {
-				err := st.AddForkID(ctx, f, dbTx)
-				if err != nil {
-					log.Errorf("error adding forkID to db. Error: %v", err)
-					rollbackErr := dbTx.Rollback(ctx)
-					if rollbackErr != nil {
-						log.Errorf("error rolling back dbTx. RollbackErr: %s. Error : %v", rollbackErr.Error(), err)
-						return []state.ForkIDInterval{}, rollbackErr
-					}
-					return []state.ForkIDInterval{}, fmt.Errorf("error adding forkID to db. Error: %v", err)
-				}
-			}
-			err = dbTx.Commit(ctx)
-			if err != nil {
-				log.Errorf("error committing dbTx. Error: %v", err)
-				rollbackErr := dbTx.Rollback(ctx)
-				if rollbackErr != nil {
-					log.Errorf("error rolling back dbTx. RollbackErr: %s. Error : %v", rollbackErr.Error(), err)
-					return []state.ForkIDInterval{}, rollbackErr
-				}
-				return []state.ForkIDInterval{}, fmt.Errorf("error committing dbTx. Error: %v", err)
-			}
-			forkIDIntervals = forkIntervals
-		} else {
-			log.Debug("Getting initial forkID")
-			forkIntervals, err := etherman.GetForks(ctx, genesisBlockNumber, genesisBlockNumber)
-			if err != nil {
-				return []state.ForkIDInterval{}, fmt.Errorf("error getting forks. Please check the configuration. Error: %v", err)
-			} else if len(forkIntervals) == 0 {
-				return []state.ForkIDInterval{}, fmt.Errorf("error: no forkID received. It should receive at least one, please check the configuration")
-			}
-			forkIDIntervals = forkIntervals
-		}
-	}
-	return forkIDIntervals, nil
 }
