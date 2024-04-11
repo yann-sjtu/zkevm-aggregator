@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/0xPolygonHermez/zkevm-aggregator/hex"
-	poseidon "github.com/iden3/go-iden3-crypto/goldenposeidon"
 )
 
 // maxBigIntLen is 256 bits (32 bytes)
@@ -15,22 +14,6 @@ const maxBigIntLen = 32
 
 // wordLength is the number of bits of each ff limb
 const wordLength = 64
-
-// fea2scalar converts array of uint64 values into one *big.Int.
-func fea2scalar(v []uint64) *big.Int {
-	if len(v) != poseidon.NROUNDSF {
-		return big.NewInt(0)
-	}
-	res := new(big.Int).SetUint64(v[0])
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[1]), 32))  //nolint:gomnd
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[2]), 64))  //nolint:gomnd
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[3]), 96))  //nolint:gomnd
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[4]), 128)) //nolint:gomnd
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[5]), 160)) //nolint:gomnd
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[6]), 192)) //nolint:gomnd
-	res.Add(res, new(big.Int).Lsh(new(big.Int).SetUint64(v[7]), 224)) //nolint:gomnd
-	return res
-}
 
 // scalar2fea splits a *big.Int into array of 32bit uint64 values.
 func scalar2fea(value *big.Int) []uint64 {
@@ -112,22 +95,4 @@ func ScalarToFilledByteSlice(s *big.Int) []byte {
 // maxBigIntLen bytes.
 func h4ToFilledByteSlice(h4 []uint64) []byte {
 	return ScalarToFilledByteSlice(h4ToScalar(h4))
-}
-
-// string2fea converts an string into an array of 32bit uint64 values.
-func string2fea(s string) ([]uint64, error) {
-	bi, ok := new(big.Int).SetString(s, hex.Base)
-	if !ok {
-		return nil, fmt.Errorf("could not convert %q into big int", s)
-	}
-	return scalar2fea(bi), nil
-}
-
-// fea2string converts an array of 32bit uint64 values into a string.
-func fea2string(fea []uint64) string {
-	bi := fea2scalar(fea)
-
-	biBytes := ScalarToFilledByteSlice(bi)
-
-	return hex.EncodeToHex(biBytes)
 }

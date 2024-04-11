@@ -91,7 +91,7 @@ func start(cliCtx *cli.Context) error {
 		log.Fatal(err)
 	}
 
-	st := newState(c, l2ChainID, []state.ForkIDInterval{}, stateSqlDB, eventLog)
+	st := newState(c, l2ChainID, stateSqlDB, eventLog)
 
 	c.Aggregator.ChainID = l2ChainID
 
@@ -183,15 +183,11 @@ func waitSignal(cancelFuncs []context.CancelFunc) {
 	}
 }
 
-func newState(c *config.Config, l2ChainID uint64, forkIDIntervals []state.ForkIDInterval, sqlDB *pgxpool.Pool, eventLog *event.EventLog) *state.State {
+func newState(c *config.Config, l2ChainID uint64, sqlDB *pgxpool.Pool, eventLog *event.EventLog) *state.State {
 	stateDb := pgstatestorage.NewPostgresStorage(c.State, sqlDB)
 
 	stateCfg := state.Config{
-		MaxCumulativeGasUsed:   c.State.Batch.Constraints.MaxCumulativeGasUsed,
-		ChainID:                l2ChainID,
-		ForkIDIntervals:        forkIDIntervals,
-		ForkUpgradeBatchNumber: c.ForkUpgradeBatchNumber,
-		ForkUpgradeNewForkId:   c.ForkUpgradeNewForkId,
+		ChainID: l2ChainID,
 	}
 
 	st := state.NewState(stateCfg, stateDb, eventLog)

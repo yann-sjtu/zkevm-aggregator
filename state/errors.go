@@ -3,8 +3,6 @@ package state
 import (
 	"errors"
 	"fmt"
-
-	"github.com/umbracle/ethgo/abi"
 )
 
 var (
@@ -68,14 +66,3 @@ var (
 	// to filter native block hashes is bigger than the configured limit
 	ErrMaxNativeBlockHashBlockRangeLimitExceeded = errors.New("native block hashes are limited to a %v block range")
 )
-
-// ConstructErrorFromRevert extracts the reverted reason from the provided returnValue
-// and creates an instance of error that wraps the original error + the reverted reason
-func ConstructErrorFromRevert(err error, returnValue []byte) error {
-	revertErrMsg, unpackErr := abi.UnpackRevertError(returnValue)
-	if unpackErr != nil {
-		return err
-	}
-
-	return fmt.Errorf("%w: %s", err, revertErrMsg)
-}
