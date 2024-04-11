@@ -1146,7 +1146,7 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 	isForcedBatch := false
 	batchRawData := &state.BatchRawV2{}
 
-	if batchToVerify.BatchNumber == 1 || batchToVerify.ForcedBatchNum != nil || batchToVerify.BatchNumber == a.cfg.UpgradeEtrogBatchNumber {
+	if batchToVerify.BatchNumber == 1 || batchToVerify.ForcedBatchNum != nil {
 		isForcedBatch = true
 	} else {
 		batchRawData, err = state.DecodeBatchV2(batchToVerify.BatchL2Data)
