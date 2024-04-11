@@ -874,11 +874,14 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 	}
 
 	// Get LER
-	ler, err := getLER(currentL2Block.BlockNumber, a.cfg.WitnessURL, a.cfg.LERContract)
-	if err != nil {
-		return nil, nil, err
+	l2BlockNumber := batchRaw.Blocks[0].BlockNumber
+	if l2BlockNumber > 0 {
+		ler, err := getLER(l2BlockNumber-1, a.cfg.WitnessURL, a.cfg.LERContract)
+		if err != nil {
+			return nil, nil, err
+		}
+		batch.LocalExitRoot = ler
 	}
-	batch.LocalExitRoot = ler
 
 	batchl2Data, err := state.EncodeBatchV2(&batchRaw)
 	if err != nil {
