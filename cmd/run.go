@@ -196,7 +196,7 @@ func newState(c *config.Config, l2ChainID uint64, forkIDIntervals []state.ForkID
 		ForkUpgradeNewForkId:         c.ForkUpgradeNewForkId,
 	}
 
-	st := state.NewState(stateCfg, stateDb, nil, nil, eventLog, nil)
+	st := state.NewState(stateCfg, stateDb, eventLog)
 	return st
 }
 

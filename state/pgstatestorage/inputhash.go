@@ -28,3 +28,11 @@ func (p *PostgresStorage) GetAccInputHash(ctx context.Context, batchNumber uint6
 	}
 	return common.HexToHash(hashStr), nil
 }
+
+// DeleteAccInputHashesOlderThanBatchNumber deletes hashes previous to the given batch number
+func (p *PostgresStorage) DeleteAccInputHashesOlderThanBatchNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) error {
+	const deleteGeneratedProofSQL = "DELETE FROM aggregator.acc_input_hash WHERE batch_num < $1"
+	e := p.getExecQuerier(dbTx)
+	_, err := e.Exec(ctx, deleteGeneratedProofSQL, batchNumber)
+	return err
+}

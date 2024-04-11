@@ -36,7 +36,6 @@ const (
 	dataStreamType      = 1
 	mockedStateRoot     = "0x090bcaf734c4f06c93954a827b45a6e8c67b8e0fd1e0a35a1c5982d6961828f9"
 	mockedLocalExitRoot = "0x17c04c3760510b48c6012742c540a81aba4bca2f78b9d14bfd2f123e2e53ea3e"
-	// monitoredIDFormat   = "proof-from-%v-to-%v"
 )
 
 type finalProofMsg struct {
@@ -63,10 +62,6 @@ type Aggregator struct {
 	timeCleanupLockedProofs types.Duration
 	stateDBMutex            *sync.Mutex
 	timeSendFinalProofMutex *sync.RWMutex
-	/*
-		batchAccInputHash       map[uint64]common.Hash
-		accInputHashMutes       *sync.RWMutex
-	*/
 
 	finalProof     chan finalProofMsg
 	verifyingProof bool
@@ -138,7 +133,6 @@ func New(ctx context.Context, cfg Config, stateInterface stateInterface, etherma
 
 // Start starts the aggregator
 func (a *Aggregator) Start(ctx context.Context) error {
-	log.Info("Start")
 	var cancel context.CancelFunc
 	if ctx == nil {
 		ctx = context.Background()
@@ -149,42 +143,11 @@ func (a *Aggregator) Start(ctx context.Context) error {
 
 	metrics.Register()
 
-	log.Info("ProcessPendingMonitoredTxs")
-	// process monitored batch verifications before starting
-	/*
-		a.ethTxManager.ProcessPendingMonitoredTxs(ctx, func(result ethtxmanager.MonitoredTxResult) {
-			a.handleMonitoredTxResult(result)
-		})
-	*/
-
-	log.Info("DeleteUngeneratedProofs")
-	// Delete ungenerated recursive proofs
-	err := a.state.DeleteUngeneratedProofs(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("failed to initialize proofs cache %w", err)
-	}
-
-	log.Info("Listen")
 	address := fmt.Sprintf("%s:%d", a.cfg.Host, a.cfg.Port)
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
-
-	/*
-		enforcement := keepalive.EnforcementPolicy{
-			MinTime:             5 * time.Second,
-			PermitWithoutStream: true,
-		}
-
-		a.srv = grpc.NewServer(
-			grpc.KeepaliveEnforcementPolicy(enforcement),
-			grpc.KeepaliveParams(keepalive.ServerParameters{
-				MaxConnectionAge:      15 * time.Minute,
-				MaxConnectionAgeGrace: 15 * time.Minute,
-			}),
-		)
-	*/
 
 	a.srv = grpc.NewServer()
 	prover.RegisterAggregatorServiceServer(a.srv, a)
@@ -192,37 +155,45 @@ func (a *Aggregator) Start(ctx context.Context) error {
 	healthService := newHealthChecker()
 	grpchealth.RegisterHealthServer(a.srv, healthService)
 
-	log.Info("Services Registered")
-
 	// Initial sync blocking
 	err = a.l1Syncr.Sync(true)
 	if err != nil {
 		return err
 	}
 
-	log.Info("All synced")
-
-	log.Info("GetLatestVerifiedBatchNum")
-	// Initiate AccInputHash map
+	// Get last verified batch number to set the starting point for verifications
 	lastVerifiedBatchNumber, err := a.etherman.GetLatestVerifiedBatchNum()
 	if err != nil {
 		return err
 	}
 
-	//TODO: Deleted previous acc input hashes from DB as they are no longer needed
-	log.Info("getAndStoreAccInputHash")
+	// Cleanup data base
+	err = a.state.DeleteAccInputHashesOlderThanBatchNumber(ctx, lastVerifiedBatchNumber, nil)
+	if err != nil {
+		return err
+	}
+
+	err = a.state.DeleteSequencesOlderThanBatchNumber(ctx, lastVerifiedBatchNumber, nil)
+	if err != nil {
+		return err
+	}
+
+	// Delete ungenerated recursive proofs
+	err = a.state.DeleteUngeneratedProofs(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to initialize proofs cache %w", err)
+	}
+
 	err = a.getAndStoreAccInputHash(ctx, lastVerifiedBatchNumber)
 	if err != nil {
 		return err
 	}
 
 	// Start stream client
-	log.Info("Starting data stream client....")
 	err = a.streamClient.Start()
 	if err != nil {
 		log.Fatalf("failed to start stream client, error: %v", err)
 	}
-	log.Info("Data stream client started")
 
 	// A this point everything is ready, so start serving
 	go func() {
@@ -244,9 +215,7 @@ func (a *Aggregator) Start(ctx context.Context) error {
 		}
 	}()
 
-	log.Info("Starting eth tx manager...")
 	go a.ethTxManager.Start()
-	log.Info("Eth tx manager started")
 
 	<-ctx.Done()
 	return ctx.Err()
@@ -354,7 +323,6 @@ func (a *Aggregator) sendFinalProof() {
 
 			a.startProofVerification()
 
-			// TODO: Review time.Now()
 			_, finalBatch, err := a.getBatchFromDataStream(proof.BatchNumberFinal, time.Now())
 			if err != nil {
 				log.Errorf("Failed to retrieve batch with number [%d]: %v", proof.BatchNumberFinal, err)
@@ -368,8 +336,6 @@ func (a *Aggregator) sendFinalProof() {
 				NewStateRoot:     finalBatch.StateRoot.Bytes(),
 			}
 
-			log.Infof("Final proof inputs: NewStateRoot [%#x]", inputs.NewStateRoot)
-
 			// add batch verification to be monitored
 			sender := common.HexToAddress(a.cfg.SenderAddress)
 			to, data, err := a.etherman.BuildTrustedVerifyBatchesTxData(proof.BatchNumber-1, proof.BatchNumberFinal, &inputs, sender)
@@ -379,10 +345,6 @@ func (a *Aggregator) sendFinalProof() {
 				continue
 			}
 
-			log.Infof("Adding monitored tx")
-			log.Infof("to: %v", to)
-			log.Infof("data: %v", common.Bytes2Hex(data))
-
 			monitoredTxID, err := a.ethTxManager.Add(ctx, to, nil, big.NewInt(0), data, nil)
 			if err != nil {
 				log.Errorf("Error Adding TX to ethTxManager: %v", err)
@@ -391,8 +353,6 @@ func (a *Aggregator) sendFinalProof() {
 				a.handleFailureToAddVerifyBatchToBeMonitored(ctx, proof)
 				continue
 			}
-
-			log.Infof("MonitorexTxID: %v", monitoredTxID)
 
 			// process monitored batch verifications before starting a next cycle
 			a.ethTxManager.ProcessPendingMonitoredTxs(ctx, func(result ethtxmanager.MonitoredTxResult) {
@@ -424,7 +384,6 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 		"recursiveProofId", *proof.ProofID,
 		"batches", fmt.Sprintf("%d-%d", proof.BatchNumber, proof.BatchNumberFinal),
 	)
-	log.Info("Generating final proof")
 
 	finalProofID, err := prover.FinalProof(proof.Proof, a.cfg.SenderAddress)
 	if err != nil {
@@ -440,14 +399,10 @@ func (a *Aggregator) buildFinalProof(ctx context.Context, prover proverInterface
 		return nil, fmt.Errorf("failed to get final proof from prover: %w", err)
 	}
 
-	log.Info("Final proof generated")
-
 	// mock prover sanity check
 	if string(finalProof.Public.NewStateRoot) == mockedStateRoot && string(finalProof.Public.NewLocalExitRoot) == mockedLocalExitRoot {
 		// This local exit root and state root come from the mock
 		// prover, use the one captured by the executor instead
-
-		// TODO: Review time.Now() does not break anything
 		_, finalBatch, err := a.getBatchFromDataStream(proof.BatchNumberFinal, time.Now())
 		if err != nil {
 			return nil, fmt.Errorf("failed to retrieve batch with number [%d]", proof.BatchNumberFinal)
@@ -858,14 +813,10 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 		return nil, nil, err
 	}
 
-	log.Infof("fromBatchBookMark %d, found", fromBatchBookMark.Value)
-
 	toEntry, err := a.streamClient.ExecCommandGetBookmark(toBatchBookMark.Encode())
 	if err != nil {
 		return nil, nil, err
 	}
-
-	log.Infof("toBatchBookMark %d, found", toBatchBookMark.Value)
 
 	l2BlockStart := state.DSL2BlockStart{}.Decode(fromEntry.Data)
 	batch := state.Batch{
@@ -874,7 +825,6 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 		Coinbase:        l2BlockStart.Coinbase,
 		GlobalExitRoot:  l2BlockStart.GlobalExitRoot,
 		Timestamp:       batchTimestamp,
-		// LocalExitRoot:  l2BlockStart.LocalExitRoot,
 	}
 
 	batchRaw := state.BatchRawV2{
@@ -925,16 +875,11 @@ func (a *Aggregator) getBatchFromDataStream(batchNumber uint64, batchTimestamp t
 		}
 	}
 
-	log.Infof("BatchL2Data Raw: %v", batchRaw)
-
 	batchl2Data, err := state.EncodeBatchV2(&batchRaw)
 	if err != nil {
 		return nil, nil, err
 	}
-
 	batch.BatchL2Data = batchl2Data
-
-	log.Infof("BatchL2Data Read from Stream: %v", common.Bytes2Hex(batchl2Data))
 
 	return batchStreamData, &batch, nil
 }
@@ -1090,8 +1035,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 		log.Debug("tryGenerateBatchProof end")
 	}()
 
-	log.Info("Generating proof from batch")
-
 	log.Infof("Sending zki + batch to the prover, batchNumber [%d]", batchToProve.BatchNumber)
 	inputProver, err := a.buildInputProver(ctx, batchDataToProve, batchToProve)
 	if err != nil {
@@ -1112,7 +1055,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 
 	proof.ProofID = genProofID
 
-	log.Infof("Proof ID %v", *proof.ProofID)
 	log = log.WithFields("proofId", *proof.ProofID)
 
 	resGetProof, err := prover.WaitRecursiveProof(ctx, *proof.ProofID)
@@ -1243,12 +1185,6 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 				}
 
 				if l1InfoRoot != calculatedL1InfoRoot {
-					for i, l := range aLeaves {
-						log.Info("AllLeaves[%d]: %s", i, common.Bytes2Hex(l[:]))
-					}
-					for i, s := range smtProof {
-						log.Info("smtProof[%d]: %s", i, common.Bytes2Hex(s[:]))
-					}
 					return nil, fmt.Errorf("error: l1InfoRoot mismatch. L1InfoRoot: %s, calculatedL1InfoRoot: %s. l1InfoTreeIndex: %d", l1InfoRoot.String(), calculatedL1InfoRoot.String(), l2blockRaw.IndexL1InfoTree)
 				}
 
@@ -1287,8 +1223,6 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 		return nil, err
 	}
 
-	log.Info("Witness generated.")
-
 	// Calculate accInputHash
 	oldAccInputHash, err := a.state.GetAccInputHash(ctx, batchToVerify.BatchNumber-1, nil)
 	if err != nil {
@@ -1300,8 +1234,6 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 	if err != nil {
 		return nil, err
 	}
-
-	log.Infof("Calculated Acc Input Hash: %v", accInputHash)
 
 	// Store new accInputHash
 	err = a.state.AddAccInputHash(ctx, batchToVerify.BatchNumber, accInputHash, nil)
@@ -1324,11 +1256,6 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 	}
 
 	printInputProver(inputProver)
-
-	log.Infof("Witness: %v", len(witness))
-	log.Infof("DataStream: %v", len(batchStreamData))
-	log.Infof("L1InfoTreeData: %v", len(l1InfoTreeData))
-
 	return inputProver, nil
 }
 
@@ -1359,13 +1286,6 @@ func calculateAccInputHash(oldAccInputHash common.Hash, batchHashData []byte, l1
 
 	v2 = keccak256.Hash(v2)
 
-	log.Debugf("OldAccInputHash: %v", oldAccInputHash)
-	log.Debugf("BatchHashData: %v", common.Bytes2Hex(v2))
-	log.Debugf("L1InfoRoot: %v", l1InfoRoot)
-	log.Debugf("TimeStampLimit: %v", timestampLimit)
-	log.Debugf("Sequencer Address: %v", sequencerAddr)
-	log.Debugf("Forced BlockHashL1: %v", forcedBlockhashL1)
-
 	return common.BytesToHash(keccak256.Hash(v1, v2, v3, v4, v5, v6)), nil
 }
 
@@ -1391,16 +1311,16 @@ func getWitness(batchNumber uint64, URL string) ([]byte, error) {
 }
 
 func printInputProver(inputProver *prover.StatelessInputProver) {
-	log.Infof("Witness length: %v", len(inputProver.PublicInputs.Witness))
-	log.Infof("DataStream length: %v", len(inputProver.PublicInputs.DataStream))
+	log.Debugf("Witness length: %v", len(inputProver.PublicInputs.Witness))
+	log.Debugf("DataStream length: %v", len(inputProver.PublicInputs.DataStream))
 	// log.Infof("Full DataStream: %v", common.Bytes2Hex(inputProver.PublicInputs.DataStream))
-	log.Infof("OldAccInputHash: %v", common.BytesToHash(inputProver.PublicInputs.OldAccInputHash))
-	log.Infof("L1InfoRoot: %v", common.BytesToHash(inputProver.PublicInputs.L1InfoRoot))
-	log.Infof("TimestampLimit: %v", inputProver.PublicInputs.TimestampLimit)
-	log.Infof("SequencerAddr: %v", inputProver.PublicInputs.SequencerAddr)
-	log.Infof("AggregatorAddr: %v", inputProver.PublicInputs.AggregatorAddr)
-	log.Infof("L1InfoTreeData: %+v", inputProver.PublicInputs.L1InfoTreeData)
-	log.Infof("ForcedBlockhashL1: %v", common.Bytes2Hex(inputProver.PublicInputs.ForcedBlockhashL1))
+	log.Debugf("OldAccInputHash: %v", common.BytesToHash(inputProver.PublicInputs.OldAccInputHash))
+	log.Debugf("L1InfoRoot: %v", common.BytesToHash(inputProver.PublicInputs.L1InfoRoot))
+	log.Debugf("TimestampLimit: %v", inputProver.PublicInputs.TimestampLimit)
+	log.Debugf("SequencerAddr: %v", inputProver.PublicInputs.SequencerAddr)
+	log.Debugf("AggregatorAddr: %v", inputProver.PublicInputs.AggregatorAddr)
+	log.Debugf("L1InfoTreeData: %+v", inputProver.PublicInputs.L1InfoTreeData)
+	log.Debugf("ForcedBlockhashL1: %v", common.Bytes2Hex(inputProver.PublicInputs.ForcedBlockhashL1))
 }
 
 // healthChecker will provide an implementation of the HealthCheck interface.

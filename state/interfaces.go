@@ -160,4 +160,6 @@ type storage interface {
 	AddAccInputHash(ctx context.Context, batchNumber uint64, accInputHash common.Hash, dbTx pgx.Tx) error
 	GetAccInputHash(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (common.Hash, error)
 	AddSequence(ctx context.Context, sequence Sequence, dbTx pgx.Tx) error
+	DeleteSequencesOlderThanBatchNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) error
+	DeleteAccInputHashesOlderThanBatchNumber(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) error
 }

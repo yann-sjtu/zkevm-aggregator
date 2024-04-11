@@ -15,8 +15,6 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-const newL2BlockEventBufferSize = 500
-
 var (
 	// DefaultSenderAddress is the address that jRPC will use
 	// to communicate with the state for eth_EstimateGas and eth_Call when
@@ -42,21 +40,16 @@ type State struct {
 }
 
 // NewState creates a new State
-func NewState(cfg Config, storage storage, executorClient executor.ExecutorServiceClient, stateTree *merkletree.StateTree, eventLog *event.EventLog, mt *l1infotree.L1InfoTree) *State {
+func NewState(cfg Config, storage storage, eventLog *event.EventLog) *State {
 	var once sync.Once
 	once.Do(func() {
 		metrics.Register()
 	})
 
 	state := &State{
-		cfg:                     cfg,
-		storage:                 storage,
-		executorClient:          executorClient,
-		tree:                    stateTree,
-		eventLog:                eventLog,
-		newL2BlockEvents:        make(chan NewL2BlockEvent, newL2BlockEventBufferSize),
-		newL2BlockEventHandlers: []NewL2BlockEventHandler{},
-		l1InfoTree:              mt,
+		cfg:      cfg,
+		storage:  storage,
+		eventLog: eventLog,
 	}
 
 	return state
