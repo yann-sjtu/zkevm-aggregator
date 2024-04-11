@@ -96,7 +96,6 @@ type storage interface {
 	AddReceipt(ctx context.Context, receipt *types.Receipt, dbTx pgx.Tx) error
 	AddLog(ctx context.Context, l *types.Log, dbTx pgx.Tx) error
 	GetExitRootByGlobalExitRoot(ctx context.Context, ger common.Hash, dbTx pgx.Tx) (*GlobalExitRoot, error)
-	AddSequence(ctx context.Context, sequence Sequence, dbTx pgx.Tx) error
 	GetSequences(ctx context.Context, lastVerifiedBatchNumber uint64, dbTx pgx.Tx) ([]Sequence, error)
 	GetVirtualBatchToProve(ctx context.Context, lastVerfiedBatchNumber uint64, maxL1Block uint64, dbTx pgx.Tx) (*Batch, error)
 	CheckProofContainsCompleteSequences(ctx context.Context, proof *Proof, dbTx pgx.Tx) (bool, error)
@@ -160,4 +159,5 @@ type storage interface {
 	CheckProofExistsForBatch(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (bool, error)
 	AddAccInputHash(ctx context.Context, batchNumber uint64, accInputHash common.Hash, dbTx pgx.Tx) error
 	GetAccInputHash(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (common.Hash, error)
+	AddSequence(ctx context.Context, sequence Sequence, dbTx pgx.Tx) error
 }

@@ -55,4 +55,5 @@ type stateInterface interface {
 	CheckProofExistsForBatch(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (bool, error)
 	AddAccInputHash(ctx context.Context, batchNumber uint64, accInputHash common.Hash, dbTx pgx.Tx) error
 	GetAccInputHash(ctx context.Context, batchNumber uint64, dbTx pgx.Tx) (common.Hash, error)
+	AddSequence(ctx context.Context, sequence state.Sequence, dbTx pgx.Tx) error
 }

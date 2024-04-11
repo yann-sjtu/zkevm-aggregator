@@ -206,6 +206,7 @@ func (a *Aggregator) Start(ctx context.Context) error {
 		return err
 	}
 
+	//TODO: Deleted previous acc input hashes from DB as they are no longer needed
 	log.Info("getAndStoreAccInputHash")
 	err = a.getAndStoreAccInputHash(ctx, lastVerifiedBatchNumber)
 	if err != nil {
@@ -986,6 +987,17 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 		return nil, nil, nil, err
 	}
 
+	stateSequence := state.Sequence{
+		FromBatchNumber: sequence.FromBatchNumber,
+		ToBatchNumber:   sequence.ToBatchNumber,
+	}
+
+	err = a.state.AddSequence(ctx, stateSequence, nil)
+	if err != nil {
+		log.Infof("Error storing sequence for batch %d", batchNumberToVerify)
+		return nil, nil, nil, err
+	}
+
 	// Not found, so it it not possible to verify the batch yet
 	if sequence == nil {
 		return nil, nil, nil, state.ErrNotFound
@@ -1023,13 +1035,11 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 
 	now := time.Now().Round(time.Microsecond)
 	proof := &state.Proof{
-		BatchNumber:             batch.BatchNumber,
-		BatchNumberFinal:        batch.BatchNumber,
-		SequenceFromBatchNumber: sequence.FromBatchNumber,
-		SequenceToBatchNumber:   sequence.ToBatchNumber,
-		Prover:                  &proverName,
-		ProverID:                &proverID,
-		GeneratingSince:         &now,
+		BatchNumber:      batch.BatchNumber,
+		BatchNumberFinal: batch.BatchNumber,
+		Prover:           &proverName,
+		ProverID:         &proverID,
+		GeneratingSince:  &now,
 	}
 
 	// Avoid other prover to process the same batch

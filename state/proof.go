@@ -4,13 +4,11 @@ import "time"
 
 // Proof struct
 type Proof struct {
-	BatchNumber             uint64
-	BatchNumberFinal        uint64
-	Proof                   string
-	InputProver             string
-	ProofID                 *string
-	SequenceFromBatchNumber uint64
-	SequenceToBatchNumber   uint64
+	BatchNumber      uint64
+	BatchNumberFinal uint64
+	Proof            string
+	InputProver      string
+	ProofID          *string
 	// Prover name, unique identifier across prover reboots.
 	Prover *string
 	// ProverID prover process identifier.
