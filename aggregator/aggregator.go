@@ -962,7 +962,7 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 	_, err = a.state.GetAccInputHash(ctx, batchNumberToVerify-1, nil)
 	if err != nil {
 		log.Infof("No acc input hash found for batch %d", batchNumberToVerify)
-		return nil, nil, nil, err
+		return nil, nil, nil, state.ErrNotFound
 	}
 
 	// Get virtual batch pending to generate proof from the data stream
@@ -971,6 +971,7 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 		return nil, batch, nil, err
 	}
 
+	// All the data required to generate a proof is ready
 	log.Infof("Found virtual batch %d pending to generate proof", batch.BatchNumber)
 	log = log.WithFields("batch", batch.BatchNumber)
 
@@ -1225,17 +1226,6 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 		}
 	}*/
 
-	// Get Witness
-	witness, err := getWitness(batchToVerify.BatchNumber, a.cfg.WitnessURL)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check Witness length
-	if len(witness) > 100*1204 { // nolint: gomnd
-		log.Warnf("Witness length is %d bytes. Check full witness configuration on %s", len(witness), a.cfg.WitnessURL)
-	}
-
 	// Calculate accInputHash
 	oldAccInputHash, err := a.state.GetAccInputHash(ctx, batchToVerify.BatchNumber-1, nil)
 	if err != nil {
@@ -1252,6 +1242,17 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchStreamData []byt
 	err = a.state.AddAccInputHash(ctx, batchToVerify.BatchNumber, accInputHash, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	// Get Witness
+	witness, err := getWitness(batchToVerify.BatchNumber, a.cfg.WitnessURL)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check Witness length
+	if len(witness) > 100*1204 { // nolint: gomnd
+		log.Warnf("Witness length is %d bytes. Check full witness configuration on %s", len(witness), a.cfg.WitnessURL)
 	}
 
 	inputProver := &prover.StatelessInputProver{
