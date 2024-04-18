@@ -988,6 +988,11 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 		return nil, nil, nil, err
 	}
 
+	// Not found, so it it not possible to verify the batch yet
+	if sequence == nil {
+		return nil, nil, nil, state.ErrNotFound
+	}
+
 	stateSequence := state.Sequence{
 		FromBatchNumber: sequence.FromBatchNumber,
 		ToBatchNumber:   sequence.ToBatchNumber,
@@ -997,11 +1002,6 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 	if err != nil {
 		log.Infof("Error storing sequence for batch %d", batchNumberToVerify)
 		return nil, nil, nil, err
-	}
-
-	// Not found, so it it not possible to verify the batch yet
-	if sequence == nil {
-		return nil, nil, nil, state.ErrNotFound
 	}
 
 	batch, datastream, err := a.state.GetBatch(ctx, batchNumberToVerify, nil)
