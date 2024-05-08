@@ -175,20 +175,24 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 				}
 
 				// Get batchl2Data from L1
-				virtualBatch, err := a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
-				if err != nil && err.Error() == "not found" {
-					log.Errorf("Error getting virtual batch: %v", err)
-					return err
-				}
-
-				for err != nil && err.Error() == "not found" {
-					log.Debug("Waiting for virtual batch to be available")
-					time.Sleep(5 * time.Second) // nolint:gomnd
-					virtualBatch, err = a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
-					if err != nil && err != state.ErrNotFound {
+				virtualBatch, _ := a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
+				/*
+					if err != nil && err.Error() == "not found" {
 						log.Errorf("Error getting virtual batch: %v", err)
 						return err
 					}
+				*/
+
+				for virtualBatch == nil {
+					log.Debug("Waiting for virtual batch to be available")
+					time.Sleep(5 * time.Second) // nolint:gomnd
+					virtualBatch, _ = a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
+					/*
+						if err != nil && err != state.ErrNotFound {
+							log.Errorf("Error getting virtual batch: %v", err)
+							return err
+						}
+					*/
 				}
 
 				if a.cfg.UseL1BatchData {
