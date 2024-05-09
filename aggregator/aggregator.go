@@ -24,6 +24,7 @@ import (
 	streamlog "github.com/0xPolygonHermez/zkevm-data-streamer/log"
 	"github.com/0xPolygonHermez/zkevm-ethtx-manager/ethtxmanager"
 	ethtxlog "github.com/0xPolygonHermez/zkevm-ethtx-manager/log"
+	"github.com/0xPolygonHermez/zkevm-synchronizer-l1/state/entities"
 	"github.com/0xPolygonHermez/zkevm-synchronizer-l1/synchronizer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/iden3/go-iden3-crypto/keccak256"
@@ -176,9 +177,20 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 
 				// Get batchl2Data from L1
 				virtualBatch, err := a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
-				if err != nil {
+				if err != nil && err != entities.ErrNotFound {
 					log.Errorf("Error getting virtual batch: %v", err)
 					return err
+				}
+
+				for err == entities.ErrNotFound {
+					log.Debug("Waiting for virtual batch to be available")
+					time.Sleep(a.cfg.RetryTime.Duration)
+					virtualBatch, err = a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
+
+					if err != nil && err != entities.ErrNotFound {
+						log.Errorf("Error getting virtual batch: %v", err)
+						return err
+					}
 				}
 
 				if a.cfg.UseL1BatchData {
@@ -203,7 +215,7 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 
 				for sequence == nil {
 					log.Debug("Waiting for sequence to be available")
-					time.Sleep(5 * time.Second) // nolint:gomnd
+					time.Sleep(a.cfg.RetryTime.Duration)
 					sequence, err = a.l1Syncr.GetSequenceByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
 					if err != nil {
 						log.Errorf("Error getting sequence: %v", err)
@@ -1285,14 +1297,14 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchToVerify *state.
 	}*/
 
 	// Get Witness
-	witness, err := getWitness(batchToVerify.BatchNumber, a.cfg.WitnessURL)
+	witness, err := getWitness(batchToVerify.BatchNumber, a.cfg.WitnessURL, a.cfg.UseFullWitness)
 	if err != nil {
 		return nil, err
 	}
 
 	// Check Witness length
-	if len(witness) > 100*1204 { // nolint: gomnd
-		log.Warnf("Witness length is %d bytes. Check full witness configuration on %s", len(witness), a.cfg.WitnessURL)
+	if len(witness) > 100*1204 && !a.cfg.UseFullWitness { // nolint: gomnd
+		log.Warnf("Witness length is %d bytes. Check full witness on %s", len(witness), a.cfg.WitnessURL)
 	}
 
 	// Get Old Acc Input Hash
@@ -1359,11 +1371,21 @@ func calculateAccInputHash(oldAccInputHash common.Hash, batchData []byte, l1Info
 	return common.BytesToHash(keccak256.Hash(v1, v2, v3, v4, v5, v6)), nil
 }
 
-func getWitness(batchNumber uint64, URL string) ([]byte, error) {
+func getWitness(batchNumber uint64, URL string, fullWitness bool) ([]byte, error) {
 	var witness string
-	response, err := rpclient.JSONRPCCall(URL, "zkevm_getBatchWitness", nil, "batch-1", batchNumber)
-	if err != nil {
-		return nil, err
+	var response rpclient.Response
+	var err error
+
+	if fullWitness {
+		response, err = rpclient.JSONRPCCall(URL, "zkevm_getBatchWitness", nil, "1", batchNumber, "full")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		response, err = rpclient.JSONRPCCall(URL, "zkevm_getBatchWitness", nil, "batch-1", batchNumber)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = json.Unmarshal(response.Result, &witness)
