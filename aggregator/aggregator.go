@@ -178,7 +178,9 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 			a.currentStreamBatch.StateRoot = common.BytesToHash(batch.StateRoot)
 
 			// Add last block (if any) to the current batch
-			a.currentStreamBatchRaw.Blocks = append(a.currentStreamBatchRaw.Blocks, a.currentStreamL2Block)
+			if a.currentStreamL2Block.BlockNumber != 0 {
+				a.currentStreamBatchRaw.Blocks = append(a.currentStreamBatchRaw.Blocks, a.currentStreamL2Block)
+			}
 
 			// Save Current Batch
 			if a.currentStreamBatch.BatchNumber != 0 {
@@ -269,7 +271,9 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 
 		case datastreamer.EntryType(datastream.EntryType_ENTRY_TYPE_L2_BLOCK):
 			// Add previous block (if any) to the current batch
-			a.currentStreamBatchRaw.Blocks = append(a.currentStreamBatchRaw.Blocks, a.currentStreamL2Block)
+			if a.currentStreamL2Block.BlockNumber != 0 {
+				a.currentStreamBatchRaw.Blocks = append(a.currentStreamBatchRaw.Blocks, a.currentStreamL2Block)
+			}
 			// "Open" the new block
 			l2Block := &datastream.L2Block{}
 			err := proto.Unmarshal(entry.Data, l2Block)
