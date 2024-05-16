@@ -1252,6 +1252,7 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchToVerify *state.
 
 	l1InfoTreeData := map[uint32]*prover.L1Data{}
 	forcedBlockhashL1 := common.Hash{}
+	l1InfoRoot := batchToVerify.L1InfoRoot.Bytes()
 	if !isForcedBatch {
 		tree, err := l1infotree.NewL1InfoTree(32, [][32]byte{}) // nolint:gomnd
 		if err != nil {
@@ -1318,6 +1319,7 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchToVerify *state.
 			}
 
 			forcedBlockhashL1 = l1Block.ParentHash
+			l1InfoRoot = batchToVerify.GlobalExitRoot.Bytes()
 		} /*else {
 			forcedBlockhashL1, err = a.state.GetForcedBatchParentHash(ctx, *batchToVerify.ForcedBatchNum, nil)
 			if err != nil {
@@ -1351,7 +1353,7 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchToVerify *state.
 			ChainId:           batchToVerify.ChainID,
 			ForkId:            batchToVerify.ForkID,
 			BatchL2Data:       batchToVerify.BatchL2Data,
-			L1InfoRoot:        batchToVerify.L1InfoRoot.Bytes(),
+			L1InfoRoot:        l1InfoRoot,
 			TimestampLimit:    uint64(batchToVerify.Timestamp.Unix()),
 			SequencerAddr:     batchToVerify.Coinbase.String(),
 			AggregatorAddr:    a.cfg.SenderAddress,
@@ -1442,7 +1444,7 @@ func printInputProver(inputProver *prover.StatelessInputProver) {
 	log.Debugf("SequencerAddr: %v", inputProver.PublicInputs.SequencerAddr)
 	log.Debugf("AggregatorAddr: %v", inputProver.PublicInputs.AggregatorAddr)
 	log.Debugf("L1InfoTreeData: %+v", inputProver.PublicInputs.L1InfoTreeData)
-	log.Debugf("ForcedBlockhashL1: %v", common.Bytes2Hex(inputProver.PublicInputs.ForcedBlockhashL1))
+	log.Debugf("ForcedBlockhashL1: %v", common.BytesToHash(inputProver.PublicInputs.ForcedBlockhashL1))
 }
 
 // healthChecker will provide an implementation of the HealthCheck interface.
