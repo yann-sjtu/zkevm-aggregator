@@ -412,12 +412,6 @@ func (a *Aggregator) Start(ctx context.Context) error {
 		return err
 	}
 
-	// Delete batches newer than last verified batch number, including it (-1)
-	err = a.state.DeleteBatchesNewerThanBatchNumber(ctx, lastVerifiedBatchNumber-1, nil)
-	if err != nil {
-		return err
-	}
-
 	// Delete ungenerated recursive proofs
 	err = a.state.DeleteUngeneratedProofs(ctx, nil)
 	if err != nil {
