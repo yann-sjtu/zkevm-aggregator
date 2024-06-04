@@ -1312,7 +1312,7 @@ func (a *Aggregator) buildInputProver(ctx context.Context, batchToVerify *state.
 		}
 
 		leaves, err := a.l1Syncr.GetLeafsByL1InfoRoot(ctx, batchToVerify.L1InfoRoot)
-		if err != nil {
+		if err != nil && !errors.Is(err, entities.ErrNotFound) {
 			return nil, err
 		}
 
