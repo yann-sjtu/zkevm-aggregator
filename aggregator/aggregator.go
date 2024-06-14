@@ -1247,17 +1247,7 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 
 	log.Info("Batch proof generated")
 
-	// Sanity Check: state root from the proof must match the one from the batch
-	proofStateRoot, err := GetStateRootFromBatchProof(resGetProof)
-	if err != nil {
-		err = fmt.Errorf("failed to get state root from batch proof, %w", err)
-		log.Error(FirstToUpper(err.Error()))
-		return false, err
-	}
-	// Check if the state root from the proof matches the one from the batch
-	if !bytes.Equal(proofStateRoot.Bytes(), batchToProve.StateRoot.Bytes()) {
-		log.Fatalf("State root from the proof [%#x] does not match the one from the batch [%#x]", proofStateRoot, batchToProve.StateRoot)
-	}
+	proof.Proof = resGetProof
 
 	// NOTE(pg): the defer func is useless from now on, use a different variable
 	// name for errors (or shadow err in inner scopes) to not trigger it.
@@ -1273,8 +1263,20 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 	if !finalProofBuilt {
 		proof.GeneratingSince = nil
 
+		// Sanity Check: state root from the proof must match the one from the batch
+		proofStateRoot, err := GetStateRootFromBatchProof(proof.Proof)
+		if err != nil {
+			err = fmt.Errorf("failed to get state root from batch proof, %w", err)
+			log.Error(FirstToUpper(err.Error()))
+			return false, err
+		}
+		// Check if the state root from the proof matches the one from the batch
+		if !bytes.Equal(proofStateRoot.Bytes(), batchToProve.StateRoot.Bytes()) {
+			log.Fatalf("State root from the proof [%#x] does not match the one from the batch [%#x]", proofStateRoot, batchToProve.StateRoot)
+		}
+
 		// final proof has not been generated, update the batch proof
-		err := a.state.UpdateGeneratedProof(a.ctx, proof, nil)
+		err = a.state.UpdateGeneratedProof(a.ctx, proof, nil)
 		if err != nil {
 			err = fmt.Errorf("failed to store batch proof result, %w", err)
 			log.Error(FirstToUpper(err.Error()))
