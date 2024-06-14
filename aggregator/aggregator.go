@@ -233,6 +233,7 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 						batchl2Data, err = state.EncodeBatchV2(&a.currentStreamBatchRaw)
 						if err != nil {
 							log.Errorf("Error encoding batch %d, : %v", batch.Number, err)
+							log.Errorf("Batch type: %v", a.currentStreamBatch.Type)
 							return err
 						}
 					}
