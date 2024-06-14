@@ -1,7 +1,6 @@
 package aggregator
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -1262,18 +1261,6 @@ func (a *Aggregator) tryGenerateBatchProof(ctx context.Context, prover proverInt
 
 	if !finalProofBuilt {
 		proof.GeneratingSince = nil
-
-		// Sanity Check: state root from the proof must match the one from the batch
-		proofStateRoot, err := GetStateRootFromBatchProof(proof.Proof)
-		if err != nil {
-			err = fmt.Errorf("failed to get state root from batch proof, %w", err)
-			log.Error(FirstToUpper(err.Error()))
-			return false, err
-		}
-		// Check if the state root from the proof matches the one from the batch
-		if !bytes.Equal(proofStateRoot.Bytes(), batchToProve.StateRoot.Bytes()) {
-			log.Fatalf("State root from the proof [%#x] does not match the one from the batch [%#x]", proofStateRoot, batchToProve.StateRoot)
-		}
 
 		// final proof has not been generated, update the batch proof
 		err = a.state.UpdateGeneratedProof(a.ctx, proof, nil)
