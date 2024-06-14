@@ -232,7 +232,7 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 					if a.currentStreamBatch.Type != datastream.BatchType_BATCH_TYPE_INVALID {
 						batchl2Data, err = state.EncodeBatchV2(&a.currentStreamBatchRaw)
 						if err != nil {
-							log.Errorf("Error encoding batch: %v", err)
+							log.Errorf("Error encoding batch %d, : %v", batch.Number, err)
 							return err
 						}
 					}
@@ -240,7 +240,7 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 					// Get batchl2Data from L1
 					virtualBatch, err := a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
 					if err != nil && !errors.Is(err, entities.ErrNotFound) {
-						log.Errorf("Error getting virtual batch: %v", err)
+						log.Errorf("Error getting virtual batch %d: %v", a.currentStreamBatch.BatchNumber, err)
 						return err
 					}
 
@@ -250,7 +250,7 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 						virtualBatch, err = a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
 
 						if err != nil && !errors.Is(err, entities.ErrNotFound) {
-							log.Errorf("Error getting virtual batch: %v", err)
+							log.Errorf("Error getting virtual batch %d: %v", a.currentStreamBatch.BatchNumber, err)
 							return err
 						}
 					}
