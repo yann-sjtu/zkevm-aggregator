@@ -228,6 +228,15 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 				if a.currentStreamBatch.BatchNumber != 0 {
 					var batchl2Data []byte
 
+					// Only try to encode the batch if it is not marked as invalid
+					if a.currentStreamBatch.Type != datastream.BatchType_BATCH_TYPE_INVALID {
+						batchl2Data, err = state.EncodeBatchV2(&a.currentStreamBatchRaw)
+						if err != nil {
+							log.Errorf("Error encoding batch: %v", err)
+							return err
+						}
+					}
+
 					// Get batchl2Data from L1
 					virtualBatch, err := a.l1Syncr.GetVirtualBatchByBatchNumber(ctx, a.currentStreamBatch.BatchNumber)
 					if err != nil && !errors.Is(err, entities.ErrNotFound) {
@@ -250,11 +259,6 @@ func (a *Aggregator) handleReceivedDataStream(entry *datastreamer.FileEntry, cli
 					if a.cfg.UseL1BatchData || a.currentStreamBatch.Type == datastream.BatchType_BATCH_TYPE_INVALID {
 						a.currentStreamBatch.BatchL2Data = virtualBatch.BatchL2Data
 					} else {
-						batchl2Data, err = state.EncodeBatchV2(&a.currentStreamBatchRaw)
-						if err != nil {
-							log.Errorf("Error encoding batch: %v", err)
-							return err
-						}
 						a.currentStreamBatch.BatchL2Data = batchl2Data
 					}
 
@@ -1286,10 +1290,11 @@ func GetStateRootFromBatchProof(resGetProof string) (common.Hash, error) {
 		Publics []string `mapstructure:"publics"`
 	}
 
-	var publics Publics
+	publics := Publics{}
 	err := json.Unmarshal([]byte(resGetProof), &publics)
 	if err != nil {
 		log.Errorf("Error unmarshalling proof: %v", err)
+		log.Errorf("Proof: %s", resGetProof)
 		return common.Hash{}, err
 	}
 
