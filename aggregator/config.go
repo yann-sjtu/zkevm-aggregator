@@ -1,8 +1,11 @@
 package aggregator
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 
 	"github.com/0xPolygonHermez/zkevm-aggregator/config/types"
 	"github.com/0xPolygonHermez/zkevm-aggregator/db"
@@ -10,6 +13,18 @@ import (
 	"github.com/0xPolygonHermez/zkevm-aggregator/log"
 	"github.com/0xPolygonHermez/zkevm-ethtx-manager/ethtxmanager"
 	syncronizerConfig "github.com/0xPolygonHermez/zkevm-synchronizer-l1/config"
+	"github.com/ethereum/go-ethereum/accounts/keystore"
+)
+
+// SettlementBackend is the type of the settlement backend
+type SettlementBackend string
+
+const (
+	// AggLayer settlement backend
+	AggLayer SettlementBackend = "agglayer"
+
+	// L1 settlement backend
+	L1 SettlementBackend = "l1"
 )
 
 // TokenAmountWithDecimals is a wrapper type that parses token amount with decimals to big int
@@ -113,6 +128,18 @@ type Config struct {
 
 	// Synchornizer config
 	Synchronizer syncronizerConfig.Config `mapstructure:"Synchronizer"`
+
+	// SettlementBackend configuration defines how a final ZKP should be settled. Directly to L1 or over the Beethoven service.
+	SettlementBackend SettlementBackend `mapstructure:"SettlementBackend" jsonschema:"enum=agglayer,enum=l1"`
+
+	// SequencerPrivateKey Private key of the trusted sequencer
+	SequencerPrivateKey types.KeystoreFileConfig `mapstructure:"SequencerPrivateKey"`
+
+	// AggLayerTxTimeout is the interval time to wait for a tx to be mined from the agglayer
+	AggLayerTxTimeout types.Duration `mapstructure:"AggLayerTxTimeout"`
+
+	// AggLayerURL url of the agglayer service
+	AggLayerURL string `mapstructure:"AggLayerURL"`
 }
 
 // StreamClientCfg contains the data streamer's configuration properties
@@ -121,4 +148,20 @@ type StreamClientCfg struct {
 	Server string `mapstructure:"Server"`
 	// Log is the log configuration
 	Log log.Config `mapstructure:"Log"`
+}
+
+// newKeyFromKeystore creates a private key from a keystore file
+func newKeyFromKeystore(cfg types.KeystoreFileConfig) (*ecdsa.PrivateKey, error) {
+	if cfg.Path == "" && cfg.Password == "" {
+		return nil, nil
+	}
+	keystoreEncrypted, err := os.ReadFile(filepath.Clean(cfg.Path))
+	if err != nil {
+		return nil, err
+	}
+	key, err := keystore.DecryptKey(keystoreEncrypted, cfg.Password)
+	if err != nil {
+		return nil, err
+	}
+	return key.PrivateKey, nil
 }
