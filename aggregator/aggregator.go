@@ -1040,6 +1040,12 @@ func (a *Aggregator) getAndLockBatchToProve(ctx context.Context, prover proverIn
 		ToBatchNumber:   sequence.ToBatchNumber,
 	}
 
+	_, _, err = a.state.GetBatch(ctx, sequence.FromBatchNumber, nil)
+	if err != nil {
+		log.Infof("Error get batch %d, err: %v", sequence.FromBatchNumber, err)
+		return nil, nil, state.ErrNotFound
+	}
+
 	err = a.state.AddSequence(ctx, stateSequence, nil)
 	if err != nil {
 		log.Infof("Error storing sequence for batch %d", batchNumberToVerify)
