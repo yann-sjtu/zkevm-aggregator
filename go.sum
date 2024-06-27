@@ -39,8 +39,6 @@ cloud.google.com/go/storage v1.10.0/go.mod h1:FLPqc6j+Ki4BU591ie1oL6qBQGu2Bl/tZ9
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
 github.com/0xPolygonHermez/zkevm-data-streamer v0.2.2 h1:XRMTk+W6vtJVGVjuEznfWyNt7HkRkkuSmlN5Y6p60Sc=
 github.com/0xPolygonHermez/zkevm-data-streamer v0.2.2/go.mod h1:0QkAXcFa92mFJrCbN3UPUJGJYes851yEgYHLONnaosE=
-github.com/0xPolygonHermez/zkevm-ethtx-manager v0.1.1 h1:hcF/rmRQ+j7Rd06Qr6bQhk+8h/pfcgiwuV+2nAO+mj0=
-github.com/0xPolygonHermez/zkevm-ethtx-manager v0.1.1/go.mod h1:GbITwHh15LH9AGLmash06/pM1I1Kaf/XwB8O7J4s1WI=
 github.com/0xPolygonHermez/zkevm-synchronizer-l1 v0.3.2 h1:8u5EVz1EVrV1oN/gPx7pCrZbWj8ofT9GWRGzKYFFrWI=
 github.com/0xPolygonHermez/zkevm-synchronizer-l1 v0.3.2/go.mod h1:4oEJL3KW/eUgbAv7HqQyDR4pl2Rsqv+k/50RJvSlo2w=
 github.com/AndreasBriese/bbloom v0.0.0-20190306092124-e2d15f34fcf9/go.mod h1:bOvUY6CB00SOBii9/FifXqc0awNKxLFCL/+pkDPuyl8=
@@ -684,6 +682,8 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 h1:+qGGcbkzsfDQNPPe9UDgpxAWQrhbbBXOYJFQDq/dtJw=
 github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913/go.mod h1:4aEEwZQutDLsQv2Deui4iYQ6DWTxR14g6m8Wv88+Xqk=
 github.com/yalp/jsonpath v0.0.0-20180802001716-5cc68e5049a0/go.mod h1:/LWChgwKmvncFJFHJ7Gvn9wZArjbV5/FppcK2fKk/tI=
+github.com/yann-sjtu/zkevm-ethtx-manager v0.1.2-0.20240626184130-6287155d4ba1 h1:ogiXuuvuMlhbkxhrqy7C0H+TiwzFaVTRj+r+pjNDsBY=
+github.com/yann-sjtu/zkevm-ethtx-manager v0.1.2-0.20240626184130-6287155d4ba1/go.mod h1:GbITwHh15LH9AGLmash06/pM1I1Kaf/XwB8O7J4s1WI=
 github.com/yudai/gojsondiff v1.0.0/go.mod h1:AY32+k2cwILAkW1fbgxQ5mUmMiZFgLIV+FBNExI05xg=
 github.com/yudai/golcs v0.0.0-20170316035057-ecda9a501e82/go.mod h1:lgjkn3NuSvDfVJdfcVVdX+jpBxNmX4rDAzaS45IcYoM=
 github.com/yudai/pp v2.0.1+incompatible/go.mod h1:PuxR/8QJ7cyCkFp/aUDS+JY727OFEZkTdatxwunjIkc=
