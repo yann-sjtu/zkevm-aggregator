@@ -70,7 +70,7 @@ build: ## Builds the binary locally into ./dist
 
 .PHONY: build-docker
 build-docker: ## Builds a docker image with the node binary
-	docker build -t zkevm-aggregator -f ./Dockerfile .
+	docker build -t xzavier2048/zkevm-aggregator:v0.0.2-RC31 -f ./Dockerfile .
 
 .PHONY: build-docker-nc
 build-docker-nc: ## Builds a docker image with the node binary - but without build cache

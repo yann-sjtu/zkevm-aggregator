@@ -128,3 +128,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 )
+
+replace github.com/0xPolygonHermez/zkevm-ethtx-manager => github.com/yann-sjtu/zkevm-ethtx-manager v0.1.10-0.20240627100107-d4c2ff677c38
