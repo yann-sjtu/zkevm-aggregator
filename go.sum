@@ -43,8 +43,6 @@ github.com/0xPolygon/cdk-rpc v0.0.0-20240419104226-c0a62ba0f49d h1:sxh6hZ2jF/sxx
 github.com/0xPolygon/cdk-rpc v0.0.0-20240419104226-c0a62ba0f49d/go.mod h1:2scWqMMufrQXu7TikDgQ3BsyaKoX8qP26D6E262vSOg=
 github.com/0xPolygonHermez/zkevm-data-streamer v0.2.2 h1:XRMTk+W6vtJVGVjuEznfWyNt7HkRkkuSmlN5Y6p60Sc=
 github.com/0xPolygonHermez/zkevm-data-streamer v0.2.2/go.mod h1:0QkAXcFa92mFJrCbN3UPUJGJYes851yEgYHLONnaosE=
-github.com/0xPolygonHermez/zkevm-synchronizer-l1 v0.6.1 h1:pf0lvUJNl5/3AnpnFPvgaYTUoOydVUaqI0hyZGglI2E=
-github.com/0xPolygonHermez/zkevm-synchronizer-l1 v0.6.1/go.mod h1:3L6m4ZYs2tTTNhxMtq1KHSclxr7RmlZ3eWtOe8lsYsM=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DATA-DOG/go-sqlmock v1.5.1 h1:FK6RCIUSfmbnI/imIICmboyQBkOckutaa6R5YYlLZyo=
@@ -596,6 +594,8 @@ github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913 h1:+qGGcbkzsfDQNPPe
 github.com/xrash/smetrics v0.0.0-20240312152122-5f08fbb34913/go.mod h1:4aEEwZQutDLsQv2Deui4iYQ6DWTxR14g6m8Wv88+Xqk=
 github.com/yann-sjtu/zkevm-ethtx-manager v0.1.10-0.20240627100107-d4c2ff677c38 h1:TO9rNk0biSMhVdzMlJ5vmDCU4cdlhrKU5LCFtnZ4u78=
 github.com/yann-sjtu/zkevm-ethtx-manager v0.1.10-0.20240627100107-d4c2ff677c38/go.mod h1:pRqfLQVM3nbzdhy3buqjAgcVyNDKAXOHqTSgkwiKpic=
+github.com/yann-sjtu/zkevm-synchronizer-l1 v0.6.2-0.20240715030351-e291eea349a9 h1:4+0M9b6pBgjwkcmNI75+cR37oGgz5JScgle6jS++qP8=
+github.com/yann-sjtu/zkevm-synchronizer-l1 v0.6.2-0.20240715030351-e291eea349a9/go.mod h1:3L6m4ZYs2tTTNhxMtq1KHSclxr7RmlZ3eWtOe8lsYsM=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

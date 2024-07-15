@@ -130,3 +130,5 @@ require (
 )
 
 replace github.com/0xPolygonHermez/zkevm-ethtx-manager => github.com/yann-sjtu/zkevm-ethtx-manager v0.1.10-0.20240627100107-d4c2ff677c38
+
+replace github.com/0xPolygonHermez/zkevm-synchronizer-l1 => github.com/yann-sjtu/zkevm-synchronizer-l1 v0.6.2-0.20240715030351-e291eea349a9
